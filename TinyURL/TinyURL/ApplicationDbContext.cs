@@ -6,7 +6,7 @@ namespace TinyURL
 {
     public class ApplicationDbContext : DbContext
     {
-        public AplicationDbContext(DbContextOptions options) 
+        public ApplicationDbContext(DbContextOptions options)
             : base(options)
         {
         }
