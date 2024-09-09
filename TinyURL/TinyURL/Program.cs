@@ -20,6 +20,8 @@ if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
+
+    //app.ApplyMigration();
 }
 builder.Services.AddDbContext<ApplicationDbContext>(o =>
 o.UseSqlServer(builder.Configuration.GetConnectionString("Database")));
@@ -38,7 +40,7 @@ app.MapPost("ap/shorten", async (
     }
 
     var code = await urlShorteningService.GenerateUniqueCode();
-
+        
     var shortenedUrl = new ShortenedURL
     {
         Id = Guid.NewGuid(),
@@ -54,6 +56,19 @@ app.MapPost("ap/shorten", async (
 
     return Results.Ok(shortenedUrl.ShortUrl);
 });
+
+app.MapGet("api{code}", async (string code, ApplicationDbContext dbContext) =>
+{
+    var shortenedUrl = await dbContext.ShortenedURLs
+    .FirstOrDefaultAsync(s => s.Code == code);
+
+    if(shortenedUrl == null)
+    {
+        return Results.NotFound();
+    }
+    return Results.Redirect(shortenedUrl.LongUrl);
+});
+
 app.UseHttpsRedirection();
 
 //app.UseAuthorization();
