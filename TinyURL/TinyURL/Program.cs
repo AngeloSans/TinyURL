@@ -7,11 +7,14 @@ using TinyURL.Service;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
-
 builder.Services.AddControllers();
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
+// Register DbContext and services **before** calling builder.Build()
+builder.Services.AddDbContext<ApplicationDbContext>(o =>
+    o.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+builder.Services.AddScoped<UrlShorteningService>();
 
 var app = builder.Build();
 
@@ -20,13 +23,7 @@ if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
-
-    //app.ApplyMigration();
 }
-builder.Services.AddDbContext<ApplicationDbContext>(o =>
-o.UseSqlServer(builder.Configuration.GetConnectionString("Database")));
-
-builder.Services.AddScoped<UrlShorteningService>();
 
 app.MapPost("ap/shorten", async (
     ShortenUrlRequest request,
@@ -34,13 +31,13 @@ app.MapPost("ap/shorten", async (
     ApplicationDbContext dbContext,
     HttpContext httpContext) =>
 {
-    if (Uri.TryCreate(request.Url, UriKind.Absolute, out _))
+    if (!Uri.TryCreate(request.Url, UriKind.Absolute, out _))  // Fix: Negated the condition
     {
         return Results.BadRequest("The specified URL is invalid");
     }
 
     var code = await urlShorteningService.GenerateUniqueCode();
-        
+
     var shortenedUrl = new ShortenedURL
     {
         Id = Guid.NewGuid(),
@@ -51,18 +48,17 @@ app.MapPost("ap/shorten", async (
     };
 
     dbContext.ShortenedURLs.Add(shortenedUrl);
-
     await dbContext.SaveChangesAsync();
 
     return Results.Ok(shortenedUrl.ShortUrl);
 });
 
-app.MapGet("api{code}", async (string code, ApplicationDbContext dbContext) =>
+app.MapGet("api/{code}", async (string code, ApplicationDbContext dbContext) =>
 {
     var shortenedUrl = await dbContext.ShortenedURLs
-    .FirstOrDefaultAsync(s => s.Code == code);
+        .FirstOrDefaultAsync(s => s.Code == code);
 
-    if(shortenedUrl == null)
+    if (shortenedUrl == null)
     {
         return Results.NotFound();
     }
@@ -70,9 +66,7 @@ app.MapGet("api{code}", async (string code, ApplicationDbContext dbContext) =>
 });
 
 app.UseHttpsRedirection();
-
 //app.UseAuthorization();
-
 //app.MapControllers();
 
 app.Run();
