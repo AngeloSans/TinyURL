@@ -29,18 +29,34 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.MapPost("ap/shorten", async (
+app.MapPost("api/shorten", async (
     ShortenUrlRequest request,
     UrlShorteningService urlShorteningService,
     ApplicationDbContext dbContext,
     HttpContext httpContext) =>
 {
-    if (!Uri.TryCreate(request.Url, UriKind.Absolute, out _))  // Fix: Negated the condition
+    if (!Uri.TryCreate(request.Url, UriKind.Absolute, out _))
     {
         return Results.BadRequest("The specified URL is invalid");
     }
 
-    var code = await urlShorteningService.GenerateUniqueCode();
+    string code;
+
+    if (!string.IsNullOrEmpty(request.Alias))
+    {
+        
+        var aliasExists = await dbContext.ShortenedURLs.AnyAsync(s => s.Code == request.Alias);
+        if (aliasExists)
+        {
+            return Results.BadRequest("Alias already in use. Please choose a different alias.");
+        }
+        code = request.Alias;
+    }
+    else
+    {
+       
+        code = await urlShorteningService.GenerateUniqueCode();
+    }
 
     var shortenedUrl = new ShortenedURL
     {
@@ -56,6 +72,7 @@ app.MapPost("ap/shorten", async (
 
     return Results.Ok(shortenedUrl.ShortUrl);
 });
+
 
 app.MapGet("api/{code}", async (string code, ApplicationDbContext dbContext) =>
 {
