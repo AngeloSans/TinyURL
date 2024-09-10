@@ -10,6 +10,11 @@ namespace TinyURL.Service
         private readonly Random _random = new();
         private readonly ApplicationDbContext _dbContext;
 
+        public UrlShorteningService(ApplicationDbContext dbContext)
+        {
+            _dbContext = dbContext;
+        }
+
         public async Task<string> GenerateUniqueCode()
         {
             var codeChars = new char[NumberOfCharInShortLink];
